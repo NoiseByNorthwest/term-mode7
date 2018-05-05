@@ -1,3 +1,4 @@
+[![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
 
 ![demo gif](assets/demo.gif)
 ![renderers](assets/renderers.png)
