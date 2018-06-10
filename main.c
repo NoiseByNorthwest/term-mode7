@@ -10,6 +10,16 @@
 
 #include <ncurses.h>
 
+#if HAVE_SIXEL
+#include <sixel.h>
+
+static const size_t pixbuf_width = 640;
+static const size_t pixbuf_height = 360;
+unsigned char pixbuf[pixbuf_width * pixbuf_height];
+static const size_t default_mipmap_count_sixel = 1;
+static const size_t default_mipmap_count_character = 5;
+#endif /* HAVE_SIXEL */
+
 static void terminate_ncurses(void);
 static void restore_colors(void);
 
@@ -56,6 +66,10 @@ static void mat3_transform(const mat3_t * m, vec2_t * v);
 
 static float wrap_repeat(float v, float min, float max);
 
+#if HAVE_SIXEL
+static void renderersixel_init(uint8_t colors[][4]);
+static void renderersixel_draw(size_t x, size_t y, uint8_t colors[][4], uint8_t color_idx);
+#endif /* HAVE_SIXEL */
 static void renderer256_init(uint8_t colors[][4]);
 static void renderer256_draw(size_t x, size_t y, uint8_t colors[][4], uint8_t color_idx);
 static void renderer16_init(uint8_t colors[][4]);
@@ -86,6 +100,55 @@ static void accelerator_release(accelerator_t * accelerator);
 static float accelerator_step_distance(accelerator_t * accelerator);
 static float accelerator_velocity(const accelerator_t * accelerator);
 
+#if HAVE_SIXEL
+static int
+sixel_write(char *data, int size, void *priv)
+{
+    return fwrite(data, 1, size, (FILE *)priv);
+}
+
+static SIXELSTATUS
+output_sixel(uint8_t colors[][4])
+{
+    sixel_output_t *output = NULL;
+    sixel_dither_t *dither = NULL;
+    unsigned char palette[256 * 3];
+    int i;
+    SIXELSTATUS status;
+
+    status = sixel_output_new(&output, sixel_write, stdout, NULL);
+    if (SIXEL_FAILED(status))
+        goto end;
+    status = sixel_dither_new(&dither, 256, NULL);
+    if (SIXEL_FAILED(status))
+        goto end;
+
+    sixel_dither_set_pixelformat(dither, SIXEL_PIXELFORMAT_PAL8);
+    if (SIXEL_FAILED(status))
+        goto end;
+    for (i = 0; i < 256; ++i) {
+       palette[i * 3 + 0] = colors[i][0];
+       palette[i * 3 + 1] = colors[i][1];
+       palette[i * 3 + 2] = colors[i][2];
+    }
+    sixel_dither_set_palette(dither, (unsigned char *)palette);
+    if (SIXEL_FAILED(status))
+        goto end;
+    printf("\033[H");
+    status = sixel_encode(
+        pixbuf, pixbuf_width, pixbuf_height,
+        SIXEL_PIXELFORMAT_PAL8, dither, output);
+    if (SIXEL_FAILED(status))
+        goto end;
+end:
+    sixel_output_unref(output);
+    sixel_dither_unref(dither);
+
+    return status;
+}
+#endif /* HAVE_SIXEL */
+
+
 int main()
 {
     const struct {
@@ -108,7 +171,11 @@ int main()
     size_t current_map = 0;
 
     size_t color_count = maps[current_map].default_color_count;
-    size_t mipmap_count = 5;
+#if HAVE_SIXEL
+    size_t mipmap_count = default_mipmap_count_sixel;
+#else
+    size_t mipmap_count = default_mipmap_count_character;
+#endif /* HAVE_SIXEL */
     texture_t * texture = texture_create(
         maps[current_map].file_name,
         color_count,
@@ -138,10 +205,17 @@ int main()
         {"monochrome", renderer1_init, renderer1_draw},
         {"16 colors", renderer16_init, renderer16_draw},
         {"256 colors", renderer256_init, renderer256_draw},
+#if HAVE_SIXEL
+        {"sixel", renderersixel_init, renderersixel_draw},
+#endif /* HAVE_SIXEL */
     };
 
     const int true_color_support = can_change_color() && COLORS >= 256;
+#if HAVE_SIXEL
+    const size_t renderer_count = true_color_support ? 4 : 3;
+#else
     const size_t renderer_count = true_color_support ? 3 : 2;
+#endif /* HAVE_SIXEL */
     size_t current_renderer = renderer_count - 1;
 
     renderers[current_renderer].init(texture->mipmaps[0].image->colors);
@@ -289,7 +363,12 @@ int main()
                     }
 
                     color_count = maps[current_map].default_color_count;
-                    mipmap_count = 5;
+                    mipmap_count = default_mipmap_count_character;
+#if HAVE_SIXEL
+                    if (current_renderer == 3) { /* sixel */
+                        mipmap_count = default_mipmap_count_sixel;
+                    }
+#endif /* HAVE_SIXEL */
                 }
 
                 texture_destroy(texture);
@@ -311,9 +390,18 @@ int main()
         orientation += accelerator_step_distance(&turn_accelerator);
 
         int scr_w, scr_h;
-        getmaxyx(stdscr, scr_h, scr_w);
-        scr_w -= 1;
-        scr_h -= 2;
+#if HAVE_SIXEL
+        if (current_renderer == 3) { /* sixel */
+            scr_h = pixbuf_height;
+            scr_w = pixbuf_width;
+        } else {
+#endif /* HAVE_SIXEL */
+            getmaxyx(stdscr, scr_h, scr_w);
+            scr_w -= 1;
+            scr_h -= 2;
+#if HAVE_SIXEL
+        }
+#endif /* HAVE_SIXEL */
 
         const vec2_t center = {scr_w / 2.f, scr_h * 0.8};
         size_t rendered_pixel_count = 0;
@@ -384,6 +472,9 @@ int main()
 
                 const uint8_t color_idx = mipmap->image->data[(int)tx.y * mipmap->image->width + (int)tx.x];
                 if ((color_idx + rendered_frame_count) % 13) {
+#if HAVE_SIXEL
+                    if (current_renderer != 3)
+#endif /* HAVE_SIXEL */
                     continue;
                 }
 
@@ -398,10 +489,16 @@ int main()
             }
         }
 
-        refresh();
-
         rendered_frame_count++;
 
+#if HAVE_SIXEL
+        if (current_renderer == 3) { /* sixel */
+            output_sixel(texture->mipmaps[0].image->colors);
+            continue;
+        }
+#endif /* HAVE_SIXEL */
+
+        refresh();
         renderers[current_renderer].draw(0, i, texture->mipmaps[0].image->colors, 5);
         printw(
             "move spd: %6.1f, turn spd: %4.1f, colors: %3lu, mipmaps: %lu, renderer: %10s, map: %s\n",
@@ -720,9 +817,9 @@ static image_t * image_create_downsized_copy(const image_t * image, size_t w, si
                  * This is not the vector length, we just need a fast approximation of relative distance.
                  */
                 const size_t dist = 0
-                    + abs(avg[0] - image->colors[k][0])
-                    + abs(avg[1] - image->colors[k][1])
-                    + abs(avg[2] - image->colors[k][2])
+                    + abs((int)(avg[0] - image->colors[k][0]))
+                    + abs((int)(avg[1] - image->colors[k][1]))
+                    + abs((int)(avg[2] - image->colors[k][2]))
                 ;
 
                 if (nearest.dist > dist) {
@@ -761,7 +858,7 @@ static texture_t * texture_create(const char * file_name, size_t max_color_count
     texture->mipmap_count = 0;
 
     const size_t max_mipmap_count = sizeof(texture->mipmaps) / sizeof(texture->mipmaps[0]);
-    
+
     if (mipmap_count == 0) {
         mipmap_count = 1;
     }
@@ -914,6 +1011,18 @@ static float wrap_repeat(float v, float min, float max)
 
     return v;
 }
+
+static void renderersixel_init(uint8_t colors[][4])
+{
+    restore_colors();
+}
+
+#if HAVE_SIXEL
+static void renderersixel_draw(size_t x, size_t y, uint8_t colors[][4], uint8_t color_idx)
+{
+    pixbuf[y * pixbuf_width + x] = color_idx;
+}
+#endif
 
 static void renderer256_init(uint8_t colors[][4])
 {

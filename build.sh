@@ -42,4 +42,5 @@ then
     done
 fi
 
-gcc -Werror -O3 main.c -lncurses -lm -o build/term-mode7
+gcc -Werror -DHAVE_SIXEL -O3 main.c -lncurses -lm -lsixel -o build/term-mode7
+#gcc -Werror -O3 main.c -lncurses -lm -o build/term-mode7
