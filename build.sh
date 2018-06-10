@@ -42,5 +42,15 @@ then
     done
 fi
 
-gcc -Werror -DHAVE_SIXEL -O3 main.c -lncurses -lm -lsixel -o build/term-mode7
-#gcc -Werror -O3 main.c -lncurses -lm -o build/term-mode7
+cflags="-Werror -O3"
+ldflags="-lncurses -lm"
+
+sixel_include_dir=$(dirname $(find /usr/include -name sixel.h | head -1) || true)
+
+if [[ ! -z "$sixel_include_dir" ]]
+then
+    cflags="$cflags -DHAVE_SIXEL -I$sixel_include_dir"
+    ldflags="$ldflags -lsixel"
+fi
+
+gcc $cflags main.c $ldflags -o build/term-mode7
