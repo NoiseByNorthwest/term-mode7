@@ -13,9 +13,9 @@
 #if HAVE_SIXEL
 #include <sixel.h>
 
-static const size_t pixbuf_width = 640;
-static const size_t pixbuf_height = 360;
-unsigned char pixbuf[pixbuf_width * pixbuf_height];
+#define PIXBUF_WIDTH  640
+#define PIXBUF_HEIGHT 360
+unsigned char pixbuf[PIXBUF_WIDTH * PIXBUF_HEIGHT];
 static const size_t default_mipmap_count_sixel = 1;
 static const size_t default_mipmap_count_character = 5;
 #endif /* HAVE_SIXEL */
@@ -136,7 +136,7 @@ output_sixel(uint8_t colors[][4])
         goto end;
     printf("\033[H");
     status = sixel_encode(
-        pixbuf, pixbuf_width, pixbuf_height,
+        pixbuf, PIXBUF_WIDTH, PIXBUF_HEIGHT,
         SIXEL_PIXELFORMAT_PAL8, dither, output);
     if (SIXEL_FAILED(status))
         goto end;
@@ -392,8 +392,8 @@ int main()
         int scr_w, scr_h;
 #if HAVE_SIXEL
         if (current_renderer == 3) { /* sixel */
-            scr_h = pixbuf_height;
-            scr_w = pixbuf_width;
+            scr_h = PIXBUF_HEIGHT;
+            scr_w = PIXBUF_WIDTH;
         } else {
 #endif /* HAVE_SIXEL */
             getmaxyx(stdscr, scr_h, scr_w);
@@ -1020,7 +1020,7 @@ static void renderersixel_init(uint8_t colors[][4])
 #if HAVE_SIXEL
 static void renderersixel_draw(size_t x, size_t y, uint8_t colors[][4], uint8_t color_idx)
 {
-    pixbuf[y * pixbuf_width + x] = color_idx;
+    pixbuf[y * PIXBUF_WIDTH + x] = color_idx;
 }
 #endif
 
