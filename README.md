@@ -72,7 +72,7 @@ This is why several techniques are combined to mitigate rendering latency:
 - sleep for 5ms per frame: to limit a bit user rendering loop fill rate.
 - texture quantization: to decrease overall texture details.
 - level of detail via texture mipmapping: by default 5 mipmap levels (1024x1024 to 64x64) are used for rendering to reduce the level of detail according to the distance (= image row).
-- color interleaving: only 1/13th of colors are rendering for each frame to minimize the rendered color count per frame. Of course the downside is that it increases latency for some pixels and generate annoying persistence effect when moving the camera.
+- color interleaving: only 1/13th of colors are rendered for each frame to minimize the rendered color count per frame. Of course the downside is that it increases latency for some pixels and generate annoying persistence effect when moving the camera.
 
 ### Input latency
 
