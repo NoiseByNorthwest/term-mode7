@@ -33,7 +33,7 @@ then
 
     for map in ${maps[@]}
     do
-        wget http://www.mariouniverse.com/images/maps/snes/smk/${map}.png
+        wget http://www.mariouniverse.com/wp-content/img/maps/snes/smk/${map}.png
         convert ${map}.png -colors 256 -compress none BMP3:${map}.bmp
         # this second convert is required for some image to force removal of RLE compression
         convert ${map}.bmp -colors 256 -compress none BMP3:${map}.bmp
