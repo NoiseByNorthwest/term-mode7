@@ -17,11 +17,12 @@ Developed and tested on x86-64 Linux (Ubuntu 16.04). I guess it should work on o
 ### Dependencies
 
 ImageMagick (to convert PNG images to BMP v3) and libncurses development package are required to build this demo.
+libsixel development package for sixel support is optionnal.
 
 For example on Ubuntu 16.04:
 
 ```shell
-sudo apt-get install imagemagick libncurses5-dev
+sudo apt-get install imagemagick libncurses5-dev libsixel-dev
 ```
 
 ### Build
